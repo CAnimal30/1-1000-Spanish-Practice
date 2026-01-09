@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1-1000 Spanish Practice</title>
+  <style>
+    :root{--bg:#f0f4f8;--card:#ffffff;--accent-1:#4CAF50;--accent-2:#2196F3;--warn:#f59e0b}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;background:var(--bg)}
+    .card{width:100%;max-width:560px;background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 24px rgba(16,24,40,.08);text-align:center;outline:none}
+    h1{margin:0 0 12px;font-size:1.25rem;color:#111}
+    p.lead{margin:0 0 14px;color:#334155}
+    .display{font-size:2.25rem;padding:18px;border-radius:10px;background:#f8fafc;border:1px solid #e6eef6;margin-bottom:10px}
+    .spanish{min-height:1.5em;color:#0f172a;font-weight:700;margin-bottom:12px}
+    .controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    button{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+    #reveal{background:var(--accent-1);color:#fff}
+    #next{background:var(--accent-2);color:#fff}
+    #practice{background:var(--warn);color:#fff}
+    .hint{margin-top:12px;color:#475569;font-size:0.9rem}
+    .keys{margin-top:8px;color:#334155;font-size:0.85rem}
+    .practice-indicator{margin-top:8px;color:#92400e;font-weight:700}
+    small{display:block;margin-top:12px;color:#64748b}
+  </style>
+</head>
+<body>
+  <div class="card" id="appCard" tabindex="0">
+    <h1>Random Number (1–1000)</h1>
+    <p class="lead">Generate a random number and reveal its Spanish spelling. Use the buttons or keyboard keys.</p>
+
+    <div class="display" id="number" aria-live="polite">?</div>
+    <div class="spanish" id="spanish" aria-live="polite"></div>
+
+    <div class="controls">
+      <button id="reveal" aria-label="Reveal in Spanish">Reveal in Spanish</button>
+      <button id="next" aria-label="Next number">Next Number</button>
+      <button id="practice" aria-label="Need more practice">Need more practice</button>
+    </div>
+
+    <div class="practice-indicator" id="practice-indicator" aria-hidden="true"></div>
+
+    <div class="keys">Keyboard shortcuts: <strong>Space</strong>=Reveal &nbsp; <strong>→</strong>=Next &nbsp; <strong>←</strong>=Need practice</div>
+    <div class="hint">If you mark "Need more practice", the very next number will be similar to the current one; the following number after that will be random again.</div>
+    <small>Rules implemented: 1–15 irregular, 16–19 dieci-, 21–29 veinti- (with accents where required), tens and hundreds according to standard Spanish.</small>
+  </div>
+
+  <script>
+    const numberEl = document.getElementById('number');
+    const spanishEl = document.getElementById('spanish');
+    const revealBtn = document.getElementById('reveal');
+    const nextBtn = document.getElementById('next');
+    const practiceBtn = document.getElementById('practice');
+    const practiceIndicator = document.getElementById('practice-indicator');
+    const appCard = document.getElementById('appCard');
+
+    function rand(){ return Math.floor(Math.random()*1000)+1 }
+    let current = rand();
+    numberEl.textContent = current;
+
+    // If true, the next "next" will generate a similar number; then it is cleared.
+    let practiceRequested = false;
+
+    const upto29 = {
+      0: 'cero',
+      1: 'uno', 2: 'dos', 3: 'tres', 4: 'cuatro', 5: 'cinco',
+      6: 'seis', 7: 'siete', 8: 'ocho', 9: 'nueve',
+      10: 'diez', 11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince',
+      16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve',
+      20: 'veinte',
+      21: 'veintiuno', 22: 'veintidós', 23: 'veintitrés', 24: 'veinticuatro', 25: 'veinticinco',
+      26: 'veintiséis', 27: 'veintisiete', 28: 'veintiocho', 29: 'veintinueve'
+    };
+
+    const tens = {3:'treinta',4:'cuarenta',5:'cincuenta',6:'sesenta',7:'setenta',8:'ochenta',9:'noventa'};
+    const hundreds = {1:'ciento',2:'doscientos',3:'trescientos',4:'cuatrocientos',5:'quinientos',6:'seiscientos',7:'setecientos',8:'ochocientos',9:'novecientos'};
+
+    function numberToSpanish(n){
+      if (n === 1000) return 'mil';
+      if (n <= 29) return upto29[n];
+      if (n < 100){
+        const d = Math.floor(n/10);
+        const u = n % 10;
+        const base = tens[d];
+        return u === 0 ? base : base + ' y ' + upto29[u];
+      }
+
+      if (n === 100) return 'cien';
+      const c = Math.floor(n/100);
+      const rest = n % 100;
+      let prefix = c === 1 ? 'ciento' : hundreds[c];
+      return rest === 0 ? prefix : prefix + ' ' + numberToSpanish(rest);
+    }
+
+    // Generate a similar number: keep the same hundreds and tens when possible, vary units.
+    // If number < 30, choose another within +/-5 to keep similarity for small numbers.
+    function generateSimilar(n){
+      if (n <= 29){
+        const min = Math.max(1, n-5);
+        const max = Math.min(29, n+5);
+        let candidate = n;
+        while(candidate === n) candidate = Math.floor(Math.random()*(max-min+1)) + min;
+        return candidate;
+      }
+
+      if (n === 1000) return 1000; // similar to 1000 is 1000 (optional)
+
+      const hundredsDigit = Math.floor(n/100);
+      const tensDigit = Math.floor((n%100)/10);
+      // Define range: same hundreds and tens if possible, vary units 0-9
+      const base = hundredsDigit*100 + tensDigit*10; // e.g., 230 for 234
+      const min = Math.max(1, base);
+      const max = Math.min(999, base + 9);
+      let candidate = n;
+      let attempts = 0;
+      while(candidate === n && attempts < 30){
+        candidate = Math.floor(Math.random()*(max-min+1)) + min;
+        attempts++;
+      }
+      // fallback: random if somehow equal
+      if (candidate === n) return rand();
+      return candidate;
+    }
+
+    revealBtn.addEventListener('click', ()=>{
+      spanishEl.textContent = numberToSpanish(current);
+    });
+
+    nextBtn.addEventListener('click', ()=>{
+      if (practiceRequested){
+        // generate similar number once, then clear flag
+        current = generateSimilar(current);
+        practiceRequested = false;
+        practiceIndicator.textContent = 'Practice: similar number shown — next will be random.';
+        practiceIndicator.setAttribute('aria-hidden','false');
+      } else {
+        current = rand();
+        practiceIndicator.textContent = '';
+        practiceIndicator.setAttribute('aria-hidden','true');
+      }
+      numberEl.textContent = current;
+      spanishEl.textContent = '';
+      // clear indicator after a short delay so user notices
+      setTimeout(()=>{ if(!practiceRequested) practiceIndicator.textContent=''; }, 2500);
+    });
+
+    practiceBtn.addEventListener('click', ()=>{
+      practiceRequested = true;
+      practiceIndicator.textContent = 'Marked for practice: next number will be similar.';
+      practiceIndicator.setAttribute('aria-hidden','false');
+    });
+
+    // Keyboard shortcuts: Space = reveal, ArrowRight = next, ArrowLeft = practice
+    window.addEventListener('keydown', (e)=>{
+      // ignore when typing in input fields (none present) but keep guard
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey) return;
+
+      if (e.code === 'Space'){
+        e.preventDefault();
+        revealBtn.click();
+      } else if (e.code === 'ArrowRight'){
+        e.preventDefault();
+        nextBtn.click();
+      } else if (e.code === 'ArrowLeft'){
+        e.preventDefault();
+        practiceBtn.click();
+      }
+    });
+
+    // Focus the card on load so keyboard events are captured in embedded views
+    window.addEventListener('load', ()=>{ try{ appCard.focus(); }catch(e){} });
+
+    // expose functions for testing in console
+    window._rng = { next: ()=>nextBtn.click(), reveal: ()=>revealBtn.click(), practice: ()=>practiceBtn.click() };
+  </script>
+</body>
+</html>
